@@ -1,0 +1,5 @@
+cloudinary==1.44.2
+fastapi==0.136.0
+firebase-admin==7.4.0
+python-multipart==0.0.26
+uvicorn==0.45.0

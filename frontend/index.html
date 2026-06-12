@@ -1,25 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Hospital Management</title>
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Firebase SDK (Compat Version for simplicity in vanilla JS) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
 </head>
 <body>
-    <header>
-        <h1>Hospital Management System</h1>
-        <nav>
-            <ul>
-                <li><a href="#" id="home-link">Home</a></li>
-                <li><a href="#" id="patients-link">Patients</a></li>
-            </ul>
-        </nav>
-        <button id="add-patient-btn" class="add-btn">Add New Patient</button>
-    </header>
 
-    <main id="app-content">
-        <h2>Welcome to the dashboard</h2>
-        <p>Select an option from the menu to get started.</p>
-    </main>
+    <!-- AUTHENTICATION PAGE (Google OAuth) -->
+<div id="auth-container" style="
+    height:100vh;
+    width:100%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(135deg,#2c3e50,#4ca1af);
+    font-family:Arial, sans-serif;
+">
+
+    <div style="
+        background:#fff;
+        padding:40px;
+        width:380px;
+        border-radius:12px;
+        box-shadow:0 10px 25px rgba(0,0,0,0.2);
+        text-align:center;
+    ">
+
+        <h2 style="margin-bottom:10px; color:#2c3e50;">Hospital System</h2>
+        <p style="margin-bottom:25px; color:#777;">
+            Authorized access only
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:15px;">
+
+            <button id="google-signin-btn" style="
+                padding:12px;
+                border:none;
+                border-radius:6px;
+                font-size:15px;
+                cursor:pointer;
+                background:#3498db;
+                color:white;
+                font-weight:bold;
+                transition:0.2s;
+            "
+            onmouseover="this.style.background='#2980b9'"
+            onmouseout="this.style.background='#3498db'">
+                Sign In with Google
+            </button>
+
+            <button id="google-signup-btn" style="
+                padding:12px;
+                border:2px solid #3498db;
+                border-radius:6px;
+                font-size:15px;
+                cursor:pointer;
+                background:white;
+                color:#3498db;
+                font-weight:bold;
+                transition:0.2s;
+            "
+            onmouseover="this.style.background='#ecf6fc'"
+            onmouseout="this.style.background='white'">
+                Sign Up with Google
+            </button>
+
+        </div>
+
+        <p id="auth-error-msg" style="
+            color:red;
+            margin-top:15px;
+            font-size:14px;
+        "></p>
+
+    </div>
+</div>
+
+    <!-- MAIN APP WRAPPER (Hidden until authenticated) -->
+    <div id="app-container" style="display: none;">
+        <header>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h1 style="margin: 0; font-size: 24px;">Hospital Management System</h1>
+                <div class="header-right">
+                    <button id="add-patient-btn" class="add-btn" style="position: static; margin-right: 10px;">Add New Patient</button>
+                    <button id="logout-btn" class="back-btn" style="background-color: #3b4b5e; color: white; border: none;">Logout</button>
+                </div>
+            </div>
+            <nav style="margin-top: 15px;">
+                <ul style="padding: 0; display: flex; justify-content: center; align-items: center; gap: 20px;">
+                    <li><a href="#" id="patients-link" style="font-size: 18px; font-weight: bold; color: white; text-decoration: none;">Patients</a></li>
+                  
+                </ul>
+            </nav>
+        </header>
+
+        <main id="app-content">
+            <!-- Content will be dynamically loaded here by app.js -->
+        </main>
+    </div>
+
+    <!-- Modal for Image Gallery -->
+    <div id="image-modal" class="modal" style="display:none;">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modal-img">
+        <a class="prev" onclick="changeImage(-1, event)">&#10094;</a>
+        <a class="next" onclick="changeImage(1, event)">&#10095;</a>
+    </div>
 
     <script src="app.js"></script>
 </body>

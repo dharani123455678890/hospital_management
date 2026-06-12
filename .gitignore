@@ -1,0 +1,17 @@
+# Secrets
+.env
+.env.*
+serviceAccountKey.json
+
+# Python
+__pycache__/
+*.py[cod]
+myenv/
+.venv/
+
+# Node
+node_modules/
+
+# Local and temporary files
+app_copy.txt
+temp_app.js.txt
