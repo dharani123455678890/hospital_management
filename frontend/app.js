@@ -478,6 +478,26 @@ function showPatientDetails(patientId) {
         });
     });
 }
+
+function imageUploaderMarkup(inputId, previewId, label = "Add Images") {
+    return `
+        <div class="image-uploader">
+            <label class="image-uploader-label">${label}</label>
+            <div id="${inputId}_dropzone" class="image-dropzone" tabindex="0" role="button" aria-label="Paste, drop, or browse image files">
+                <div class="image-dropzone-icon">+</div>
+                <strong>Copy and paste images here</strong>
+                <span>or drag and drop image files</span>
+                <span class="image-dropzone-divider">or</span>
+                <button type="button" id="${inputId}_browse" class="image-browse-btn">Browse Files</button>
+                <small>You can select multiple images</small>
+            </div>
+            <input id="${inputId}" class="image-file-input" type="file" multiple accept="image/*">
+            <p id="${inputId}_status" class="image-upload-status" aria-live="polite"></p>
+            <div id="${previewId}" class="visit-images"></div>
+        </div>
+    `;
+}
+
 function renderAddVisitForm(patientId) {
 
     window.pendingImages = []; // Clear any previously staged images
@@ -488,9 +508,7 @@ function renderAddVisitForm(patientId) {
 
 <h2>Add Visit</h2>
         <div class="full" style="margin-bottom: 20px;">
-            
-            <input id="v_images" type="file" multiple accept="image/*" class="search-input" style="margin-bottom: 10px;">
-            <div id="v_images_preview" class="visit-images"></div>
+            ${imageUploaderMarkup('v_images', 'v_images_preview')}
         </div>
 
 <div class="visit-form-grid">
@@ -538,9 +556,7 @@ function renderAddVisitForm(patientId) {
         saveVisit(patientId);
     });
 
-    document.getElementById('v_images').addEventListener('change', (e) => {
-        handleImagePreview(e, 'v_images_preview');
-    });
+    setupImageUploader('v_images', 'v_images_preview');
 }
 
 async function saveVisit(patientId) {
@@ -722,9 +738,7 @@ function showVisitDetail(patientId, visitId) {
                     </div>
 
                     <div class="full" style="margin-bottom: 20px;">
-                        <label>Upload More Images <small>(Optional)</small></label>
-                        <input id="e_images" type="file" multiple accept="image/*" class="search-input" style="margin-bottom: 10px;">
-                        <div id="e_images_preview" class="visit-images"></div>
+                        ${imageUploaderMarkup('e_images', 'e_images_preview', 'Upload More Images (Optional)')}
                     </div>
 
                 </div>
@@ -760,80 +774,123 @@ function showVisitDetail(patientId, visitId) {
         editMode.style.display = 'block';
     };
 
-    const editImagesInput = document.getElementById('e_images');
-    if (editImagesInput) {
-        editImagesInput.addEventListener('change', (e) => {
-            handleImagePreview(e, 'e_images_preview');
-        });
-    }
+    setupImageUploader('e_images', 'e_images_preview');
 
     document.getElementById('save-edit-btn').onclick = () => {
         updateVisit(patientId, visitId, visit.images || []);
     };
 }
 
-// ==== PREVIEW HANDLER ====
-function handleImagePreview(event, previewContainerId) {
+// ==== IMAGE UPLOADER ====
+function setupImageUploader(inputId, previewContainerId) {
+    const fileInput = document.getElementById(inputId);
+    const browseButton = document.getElementById(`${inputId}_browse`);
+    const dropzone = document.getElementById(`${inputId}_dropzone`);
+    const status = document.getElementById(`${inputId}_status`);
+
+    if (!fileInput || !browseButton || !dropzone) return;
+
+    const addFiles = (files, source) => {
+        const addedCount = addPendingImages(files, previewContainerId);
+        status.textContent = addedCount
+            ? `${addedCount} image${addedCount === 1 ? "" : "s"} added by ${source}.`
+            : "No image files were found.";
+    };
+
+    browseButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        fileInput.click();
+    });
+
+    dropzone.addEventListener('click', (event) => {
+        if (event.target !== browseButton) fileInput.click();
+    });
+
+    dropzone.addEventListener('keydown', (event) => {
+        if (event.target === dropzone && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            fileInput.click();
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        addFiles(fileInput.files, "File Explorer");
+        fileInput.value = "";
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropzone.classList.add('is-dragging');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropzone.classList.remove('is-dragging');
+        });
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+        addFiles(event.dataTransfer.files, "drag and drop");
+    });
+
+    dropzone.addEventListener('paste', (event) => {
+        const pastedImages = Array.from(event.clipboardData?.items || [])
+            .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+            .map(item => item.getAsFile())
+            .filter(Boolean);
+
+        if (pastedImages.length) {
+            event.preventDefault();
+            addFiles(pastedImages, "paste");
+        }
+    });
+}
+
+function addPendingImages(files, previewContainerId) {
     if (!window.pendingImages) {
         window.pendingImages = [];
     }
-    
+
     const previewContainer = document.getElementById(previewContainerId);
-    const files = event.target.files;
-    
-    if (files) {
-        Array.from(files).forEach(file => {
-            if (!file.type.startsWith('image/')) return;
-            
-            // Add to our global list so they stack instead of overriding
+    const imageFiles = Array.from(files || []).filter(file => file.type.startsWith('image/'));
+
+    imageFiles.forEach(file => {
             window.pendingImages.push(file);
-            
-            // Create a preview container for the image + remove button
+
             const wrapper = document.createElement('div');
-            wrapper.style.display = 'inline-block';
-            wrapper.style.position = 'relative';
-            wrapper.style.marginRight = '10px';
-            wrapper.style.marginBottom = '10px';
+            wrapper.className = 'image-preview-item';
 
             const img = document.createElement('img');
             img.src = URL.createObjectURL(file);
             img.className = 'visit-img-thumb';
-            img.style.margin = '0'; // override default margin
             img.onload = () => URL.revokeObjectURL(img.src);
-            
-            // Append a small "x" button to remove an image
-            const removeBtn = document.createElement('span');
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'image-preview-remove';
             removeBtn.innerHTML = '&times;';
-            removeBtn.style.position = 'absolute';
-            removeBtn.style.top = '-5px';
-            removeBtn.style.right = '-5px';
-            removeBtn.style.background = 'red';
-            removeBtn.style.color = 'white';
-            removeBtn.style.borderRadius = '50%';
-            removeBtn.style.width = '20px';
-            removeBtn.style.height = '20px';
-            removeBtn.style.textAlign = 'center';
-            removeBtn.style.lineHeight = '18px';
-            removeBtn.style.cursor = 'pointer';
-            removeBtn.style.fontSize = '16px';
-            removeBtn.style.fontWeight = 'bold';
-            
+            removeBtn.setAttribute('aria-label', `Remove ${file.name || "pasted image"}`);
+
             removeBtn.onclick = (e) => {
                 e.stopPropagation();
-                // Remove from array
                 const idx = window.pendingImages.indexOf(file);
-                if(idx > -1) {
+                if (idx > -1) {
                     window.pendingImages.splice(idx, 1);
                 }
-                // Remove from DOM
-                previewContainer.removeChild(wrapper);
+                wrapper.remove();
             };
 
             wrapper.appendChild(img);
             wrapper.appendChild(removeBtn);
             previewContainer.appendChild(wrapper);
-        });
-    }
+    });
+
+    return imageFiles.length;
 }
 
 // ==== IMAGE GALLERY MODAL ====
