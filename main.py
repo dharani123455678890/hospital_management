@@ -375,3 +375,51 @@ def delete_all():
     except Exception as e:
         print("Delete all error:", e)
         return {"status": "error", "message": str(e)}
+
+@app.delete("/delete_patient/{patient_id}")
+def delete_patient(patient_id: str):
+    if db is None:
+        return {"status": "error", "message": "DB not connected"}
+
+    try:
+        if not patient_id.startswith("p"):
+            patient_id = f"p{patient_id}"
+
+        patient_ref = db.collection("patients").document(patient_id)
+        patient_doc = patient_ref.get()
+        if not patient_doc.exists:
+            return {"status": "error", "message": "Patient not found"}
+
+        visits_ref = patient_ref.collection("visits").stream()
+        for visit in visits_ref:
+            patient_ref.collection("visits").document(visit.id).delete()
+
+        patient_ref.delete()
+        return {"status": "success", "message": "Patient deleted"}
+    except Exception as e:
+        print("Delete patient error:", e)
+        return {"status": "error", "message": str(e)}
+
+@app.delete("/delete_visit/{patient_id}/{visit_id}")
+def delete_visit(patient_id: str, visit_id: str):
+    if db is None:
+        return {"status": "error", "message": "DB not connected"}
+
+    try:
+        if not patient_id.startswith("p"):
+            patient_id = f"p{patient_id}"
+
+        visit_ref = db.collection("patients") \
+            .document(patient_id) \
+            .collection("visits") \
+            .document(visit_id)
+
+        visit_doc = visit_ref.get()
+        if not visit_doc.exists:
+            return {"status": "error", "message": "Visit not found"}
+
+        visit_ref.delete()
+        return {"status": "success", "message": "Visit deleted"}
+    except Exception as e:
+        print("Delete visit error:", e)
+        return {"status": "error", "message": str(e)}

@@ -405,6 +405,9 @@ async function executeSearch() {
                 `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.name)}`;
 
             card.innerHTML = `
+                <button type="button" class="trash-btn patient-trash-btn" title="Delete patient" aria-label="Delete ${p.name}">
+                    🗑
+                </button>
                 <img src="${profilePic}" class="profile-pic">
                 <div class="patient-info">
                     <h3>${p.name}</h3>
@@ -412,6 +415,11 @@ async function executeSearch() {
                     <button class="view-btn">View Full Details</button>
                 </div>
             `;
+
+            card.querySelector('.patient-trash-btn').addEventListener('click', (event) => {
+                event.stopPropagation();
+                deletePatient(p.id, p.name);
+            });
 
             card.addEventListener('click', () => {
                 showPatientDetails(p.id);
@@ -479,6 +487,9 @@ function showPatientDetails(patientId) {
                 <button id="add-visit-btn" class="view-btn" style="margin-top:10px;">
                     + Add Visit
                 </button>
+                <button id="delete-patient-btn" class="trash-action-btn" style="margin-top:10px;">
+                    🗑 Delete Patient
+                </button>
             </div>
         </div>
 
@@ -492,6 +503,24 @@ function showPatientDetails(patientId) {
 
     document.getElementById('add-visit-btn').addEventListener('click', () => {
         renderAddVisitForm(patient.id);
+    });
+
+    document.getElementById('delete-patient-btn').addEventListener('click', () => {
+        deletePatient(patient.id, patient.name);
+    });
+
+    document.querySelectorAll('.visit-date-card').forEach(card => {
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'trash-btn visit-trash-btn';
+        deleteButton.title = 'Delete visit';
+        deleteButton.setAttribute('aria-label', 'Delete visit');
+        deleteButton.innerHTML = '🗑';
+        deleteButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            deleteVisit(patient.id, card.dataset.id);
+        });
+        card.appendChild(deleteButton);
     });
 
     document.querySelectorAll('.visit-date-card').forEach(card => {
@@ -681,7 +710,10 @@ function showVisitDetail(patientId, visitId) {
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h2>Visit Details</h2>
-            <button id="edit-btn" class="view-btn">Edit</button>
+            <div>
+                <button id="edit-btn" class="view-btn">Edit</button>
+                <button id="delete-visit-btn" class="trash-action-btn">🗑 Delete Visit</button>
+            </div>
         </div>
 
         <div id="visit-container">
@@ -777,6 +809,8 @@ function showVisitDetail(patientId, visitId) {
     const viewMode = document.getElementById('view-mode');
     const editMode = document.getElementById('edit-mode');
 
+    document.getElementById('delete-visit-btn').onclick = () => deleteVisit(patientId, visitId);
+
     // Render Images
     const imagesContainer = document.getElementById('visit-images-container');
     if (visit.images && visit.images.length > 0) {
@@ -802,6 +836,55 @@ function showVisitDetail(patientId, visitId) {
     document.getElementById('save-edit-btn').onclick = () => {
         updateVisit(patientId, visitId, visit.images || []);
     };
+}
+
+async function deletePatient(patientId, patientName = "this patient") {
+    const confirmed = confirm(`Delete ${patientName} and all visit history? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+        const res = await apiFetch(`${BASE_URL}/delete_patient/${encodeURIComponent(patientId)}`, {
+            method: "DELETE"
+        });
+        const data = await res.json();
+
+        if (res.ok && data.status === "success") {
+            globalPatients = globalPatients.filter(p => p.id !== patientId);
+            alert("Patient deleted");
+            renderSearchPage();
+        } else {
+            alert("Delete failed: " + (data.message || data.error || "Unknown error"));
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error while deleting patient");
+    }
+}
+
+async function deleteVisit(patientId, visitId) {
+    const confirmed = confirm("Delete this visit? This cannot be undone.");
+    if (!confirmed) return;
+
+    try {
+        const res = await apiFetch(`${BASE_URL}/delete_visit/${encodeURIComponent(patientId)}/${encodeURIComponent(visitId)}`, {
+            method: "DELETE"
+        });
+        const data = await res.json();
+
+        if (res.ok && data.status === "success") {
+            const patient = globalPatients.find(p => p.id === patientId);
+            if (patient && patient.visits) {
+                patient.visits = patient.visits.filter(v => String(v.id) !== String(visitId));
+            }
+            alert("Visit deleted");
+            showPatientDetails(patientId);
+        } else {
+            alert("Delete failed: " + (data.message || data.error || "Unknown error"));
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error while deleting visit");
+    }
 }
 
 // ==== IMAGE UPLOADER ====

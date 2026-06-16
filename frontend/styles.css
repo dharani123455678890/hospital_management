@@ -113,6 +113,7 @@ select#search-by {
     padding: 15px;
     text-align: center;
     border: 1px solid #eee;
+    position: relative;
     transition: transform 0.2s ease-in-out;
 }
 
@@ -169,6 +170,42 @@ select#search-by {
     background-color: #2980b9;
 }
 
+.trash-btn,
+.trash-action-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.trash-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.trash-btn:hover,
+.trash-action-btn:hover {
+    background: #c0392b;
+}
+
+.patient-trash-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+}
+
+.trash-action-btn {
+    padding: 10px 14px;
+    border-radius: 4px;
+    margin-left: 10px;
+}
+
 /* ================= PROFILE HEADER ================= */
 
 .patient-profile-header {
@@ -199,6 +236,10 @@ select#search-by {
     margin-bottom: 10px;
     border-radius: 4px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
 }
 
 .visit-date-card:hover {
