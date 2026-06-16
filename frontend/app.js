@@ -2,6 +2,7 @@ const appContent = document.getElementById('app-content');
 const patientsLink = document.getElementById('patients-link');
 
 let globalPatients = [];
+let isSavingPatient = false;
 const BASE_URL = ["localhost", "127.0.0.1"].includes(window.location.hostname)
     ? "http://127.0.0.1:8000"
     : "/api";
@@ -307,16 +308,30 @@ function renderAddPatientForm() {
 
 // ---------- SAVE ----------
 async function savePatient() {
+    if (isSavingPatient) return;
+
     const name = document.getElementById('p_name').value.trim();
     const age = document.getElementById('p_age').value.trim();
     const gender = document.getElementById('p_gender').value;
     const native = document.getElementById('p_native').value.trim();
     const phone = document.getElementById('p_phone').value.trim();
+    const saveBtn = document.getElementById('save-patient-btn');
+    const originalBtnText = saveBtn.innerText;
 
     if (!name || !age || !gender || !native || !phone) {
         alert("All fields required");
         return;
     }
+
+    isSavingPatient = true;
+    saveBtn.disabled = true;
+    saveBtn.innerText = "Saving...";
+
+    const slowRequestTimer = setTimeout(() => {
+        if (isSavingPatient) {
+            saveBtn.innerText = "Still saving...";
+        }
+    }, 5000);
 
     try {
         const res = await apiFetch(`${BASE_URL}/add_patient`, {
@@ -345,6 +360,14 @@ async function savePatient() {
     } catch (err) {
         console.error(err);
         alert("Server error");
+    } finally {
+        clearTimeout(slowRequestTimer);
+        isSavingPatient = false;
+
+        if (document.body.contains(saveBtn)) {
+            saveBtn.disabled = false;
+            saveBtn.innerText = originalBtnText;
+        }
     }
 }
 
