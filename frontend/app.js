@@ -3,6 +3,11 @@ const patientsLink = document.getElementById('patients-link');
 
 let globalPatients = [];
 let isSavingPatient = false;
+let lastSearchState = {
+    by: "name",
+    query: "",
+    patients: []
+};
 const BASE_URL = ["localhost", "127.0.0.1"].includes(window.location.hostname)
     ? "http://127.0.0.1:8000"
     : "/api";
@@ -134,7 +139,7 @@ deleteAllBtn.addEventListener('click', async () => {
                 alert("All records completely deleted!");
                 // Clear UI cache
                 globalPatients = [];
-                renderSearchPage();
+                renderSearchPage({ preserveState: false });
             } else {
                 alert("Deletion error: " + data.message);
             }
@@ -150,8 +155,14 @@ deleteAllBtn.addEventListener('click', async () => {
 }
 
 // ---------- SEARCH PAGE ----------
-function renderSearchPage() {
-    globalPatients = [];
+function renderSearchPage(options = {}) {
+    const preserveState = options.preserveState !== false;
+    if (!preserveState) {
+        globalPatients = [];
+        lastSearchState = { by: "name", query: "", patients: [] };
+    } else {
+        globalPatients = [...lastSearchState.patients];
+    }
 
     appContent.innerHTML = `
         <h2>Patient Search</h2>
@@ -175,6 +186,14 @@ function renderSearchPage() {
     document.getElementById('search-query').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') executeSearch();
     });
+
+    if (preserveState) {
+        document.getElementById('search-by').value = lastSearchState.by;
+        document.getElementById('search-query').value = lastSearchState.query;
+        if (lastSearchState.query) {
+            renderSearchResults(globalPatients);
+        }
+    }
 }
 async function updateVisit(patientId, visitId, existingImages = []) {
 
@@ -255,6 +274,9 @@ async function updateVisit(patientId, visitId, existingImages = []) {
                 if(latestPatients && latestPatients.length > 0) {
                     const idx = globalPatients.findIndex(p => p.id === patientId);
                     if(idx !== -1) globalPatients[idx] = latestPatients[0];
+
+                    const stateIdx = lastSearchState.patients.findIndex(p => p.id === patientId);
+                    if (stateIdx !== -1) lastSearchState.patients[stateIdx] = latestPatients[0];
                 }
             } catch(e) {
                 console.error("Refresh error:", e);
@@ -352,7 +374,11 @@ async function savePatient() {
 
         if (res.ok) {
             alert(`Patient registered successfully`);
+            lastSearchState = { by: "name", query: name, patients: [] };
             renderSearchPage();
+            document.getElementById('search-by').value = "name";
+            document.getElementById('search-query').value = name;
+            executeSearch();
         } else {
             alert("Failed to register patient");
         }
@@ -387,54 +413,66 @@ async function executeSearch() {
     try {
         const res = await apiFetch(`${BASE_URL}/search_patients?by=${by}&value=${encodeURIComponent(query)}`);
         globalPatients = await res.json();
+        lastSearchState = { by, query, patients: [...globalPatients] };
 
         if (!globalPatients.length) {
             resultsArea.innerHTML = '<p>No results</p>';
             return;
         }
 
-        const container = document.createElement('div');
-        container.className = 'patients-grid';
-
-        globalPatients.forEach((p) => {
-
-            const card = document.createElement('div');
-            card.className = 'patient-card';
-
-            const profilePic = p.profile_pic ||
-                `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.name)}`;
-
-            card.innerHTML = `
-                <button type="button" class="trash-btn patient-trash-btn" title="Delete patient" aria-label="Delete ${p.name}">
-                    🗑
-                </button>
-                <img src="${profilePic}" class="profile-pic">
-                <div class="patient-info">
-                    <h3>${p.name}</h3>
-                    <p><strong>Phone:</strong> ${p.phone}</p>
-                    <button class="view-btn">View Full Details</button>
-                </div>
-            `;
-
-            card.querySelector('.patient-trash-btn').addEventListener('click', (event) => {
-                event.stopPropagation();
-                deletePatient(p.id, p.name);
-            });
-
-            card.addEventListener('click', () => {
-                showPatientDetails(p.id);
-            });
-
-            container.appendChild(card);
-        });
-
-        resultsArea.innerHTML = '';
-        resultsArea.appendChild(container);
+        renderSearchResults(globalPatients);
 
     } catch (err) {
         console.error(err);
         resultsArea.innerHTML = '<p style="color:red;">Error</p>';
     }
+}
+
+function renderSearchResults(patients) {
+    const resultsArea = document.getElementById('search-results-area');
+    if (!resultsArea) return;
+
+    if (!patients.length) {
+        resultsArea.innerHTML = '<p>No results</p>';
+        return;
+    }
+
+    const container = document.createElement('div');
+    container.className = 'patients-grid';
+
+    patients.forEach((p) => {
+        const card = document.createElement('div');
+        card.className = 'patient-card';
+
+        const profilePic = p.profile_pic ||
+            `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.name)}`;
+
+        card.innerHTML = `
+            <button type="button" class="trash-btn patient-trash-btn" title="Delete patient" aria-label="Delete ${p.name}">
+                🗑
+            </button>
+            <img src="${profilePic}" class="profile-pic">
+            <div class="patient-info">
+                <h3>${p.name}</h3>
+                <p><strong>Phone:</strong> ${p.phone}</p>
+                <button class="view-btn">View Full Details</button>
+            </div>
+        `;
+
+        card.querySelector('.patient-trash-btn').addEventListener('click', (event) => {
+            event.stopPropagation();
+            deletePatient(p.id, p.name);
+        });
+
+        card.addEventListener('click', () => {
+            showPatientDetails(p.id);
+        });
+
+        container.appendChild(card);
+    });
+
+    resultsArea.innerHTML = '';
+    resultsArea.appendChild(container);
 }
 
 // ---------- PATIENT ----------
@@ -680,7 +718,7 @@ async function saveVisit(patientId) {
 
         if (res.ok) {
             alert("Visit added successfully");
-            renderSearchPage();
+            await refreshPatientAndShow(patientId);
         } else {
             alert("Failed to add visit");
             btn.innerText = "Save Visit";
@@ -850,6 +888,7 @@ async function deletePatient(patientId, patientName = "this patient") {
 
         if (res.ok && data.status === "success") {
             globalPatients = globalPatients.filter(p => p.id !== patientId);
+            lastSearchState.patients = lastSearchState.patients.filter(p => p.id !== patientId);
             alert("Patient deleted");
             renderSearchPage();
         } else {
@@ -885,6 +924,34 @@ async function deleteVisit(patientId, visitId) {
         console.error(err);
         alert("Server error while deleting visit");
     }
+}
+
+async function refreshPatientAndShow(patientId) {
+    try {
+        const searchRes = await apiFetch(`${BASE_URL}/search_patients?by=id&value=${encodeURIComponent(patientId)}`);
+        const latestPatients = await searchRes.json();
+        if (latestPatients && latestPatients.length > 0) {
+            const latestPatient = latestPatients[0];
+            const idx = globalPatients.findIndex(p => p.id === latestPatient.id);
+            if (idx !== -1) {
+                globalPatients[idx] = latestPatient;
+            } else {
+                globalPatients.push(latestPatient);
+            }
+
+            const stateIdx = lastSearchState.patients.findIndex(p => p.id === latestPatient.id);
+            if (stateIdx !== -1) {
+                lastSearchState.patients[stateIdx] = latestPatient;
+            }
+
+            showPatientDetails(latestPatient.id);
+            return;
+        }
+    } catch (err) {
+        console.error("Patient refresh error:", err);
+    }
+
+    showPatientDetails(patientId);
 }
 
 // ==== IMAGE UPLOADER ====
