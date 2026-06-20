@@ -626,7 +626,7 @@ function renderAddVisitForm(patientId) {
 
     <!-- ROW 3: HALF + HALF -->
     <div>
-        <label>Medicine</label>
+        <label>Diagnosis & ACU Points</label>
         <textarea id="v_medicine" class="search-input" rows="4"></textarea>
     </div>
 
@@ -782,7 +782,7 @@ function showVisitDetail(patientId, visitId) {
 
                 <div class="visit-row">
                     <div class="visit-section">
-                        <label>Medicine</label>
+                        <label>Diagnosis & ACU Points</label>
                         <div class="box">${visit.medicine_given}</div>
                     </div>
 
@@ -821,7 +821,7 @@ function showVisitDetail(patientId, visitId) {
                     </div>
 
                     <div class="full">
-                        <label>Medicine</label>
+                        <label>Diagnosis & ACU Points</label>
                         <textarea id="e_medicine">${visit.medicine_given}</textarea>
                     </div>
 
